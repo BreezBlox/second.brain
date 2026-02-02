@@ -1,0 +1,713 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecondBrain // Ops Deck (Preview)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-0: #05070b;
+            --bg-1: #0a111b;
+            --bg-2: #121c2b;
+            --ink: #e7f0ff;
+            --muted: #9bb0cf;
+            --accent: #f6c453;
+            --accent-2: #2dd4bf;
+            --accent-3: #60a5fa;
+            --edge: rgba(246, 196, 83, 0.22);
+            --panel: rgba(10, 16, 25, 0.74);
+            --panel-2: rgba(14, 24, 36, 0.78);
+            --radius: 16px;
+            --shadow: 0 18px 45px rgba(3, 8, 14, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: radial-gradient(circle at 20% 10%, rgba(45, 212, 191, 0.14), transparent 40%),
+                radial-gradient(circle at 85% 15%, rgba(246, 196, 83, 0.18), transparent 42%),
+                linear-gradient(135deg, var(--bg-0), var(--bg-1) 50%, var(--bg-2) 100%);
+            color: var(--ink);
+            font-family: 'Space Grotesk', sans-serif;
+            overflow: hidden;
+        }
+
+        .mono {
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .noise {
+            position: fixed;
+            inset: 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="2" stitchTiles="stitch"/></filter><rect width="120" height="120" filter="url(%23n)" opacity="0.15"/></svg>');
+            mix-blend-mode: soft-light;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .grid-pattern {
+            position: fixed;
+            inset: 0;
+            background-image: linear-gradient(rgba(96, 165, 250, 0.08) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(96, 165, 250, 0.05) 1px, transparent 1px);
+            background-size: 64px 64px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .signal-sweep {
+            position: fixed;
+            top: -40%;
+            left: -10%;
+            width: 120%;
+            height: 140%;
+            background: radial-gradient(circle, rgba(45, 212, 191, 0.08), transparent 60%);
+            animation: sweep 12s linear infinite;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        @keyframes sweep {
+            0% {
+                transform: translateY(-10%) rotate(0deg);
+                opacity: 0.4;
+            }
+
+            50% {
+                transform: translateY(10%) rotate(1deg);
+                opacity: 0.7;
+            }
+
+            100% {
+                transform: translateY(-10%) rotate(0deg);
+                opacity: 0.4;
+            }
+        }
+
+        .top-bar {
+            border-bottom: 1px solid rgba(96, 165, 250, 0.25);
+            background: rgba(6, 10, 16, 0.75);
+            backdrop-filter: blur(10px);
+            z-index: 5;
+        }
+
+        .brand-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+            font-size: 11px;
+            color: var(--accent);
+        }
+
+        .brand-sub {
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(45, 212, 191, 0.35);
+            background: rgba(10, 22, 30, 0.7);
+            color: var(--muted);
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+        }
+
+        .chip-amber {
+            border-color: rgba(246, 196, 83, 0.4);
+            color: var(--accent);
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-2);
+            box-shadow: 0 0 8px rgba(45, 212, 191, 0.75);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+
+            50% {
+                transform: scale(1.4);
+                opacity: 0.6;
+            }
+        }
+
+        .side-panel {
+            background: rgba(7, 12, 20, 0.82);
+            border-right: 1px solid rgba(96, 165, 250, 0.2);
+        }
+
+        .section-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.28em;
+            color: var(--muted);
+        }
+
+        .nav-btn {
+            width: 100%;
+            text-align: left;
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(96, 165, 250, 0.12);
+            background: transparent;
+            color: var(--ink);
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            background: rgba(96, 165, 250, 0.12);
+        }
+
+        .nav-btn.active {
+            background: linear-gradient(90deg, rgba(45, 212, 191, 0.18), transparent 70%);
+            border-left: 3px solid var(--accent-2);
+        }
+
+        .nav-title {
+            font-weight: 600;
+            letter-spacing: 0.12em;
+            font-size: 12px;
+        }
+
+        .nav-sub {
+            color: var(--muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid rgba(96, 165, 250, 0.15);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .panel-hero {
+            border: 1px solid rgba(246, 196, 83, 0.35);
+            background: linear-gradient(130deg, rgba(246, 196, 83, 0.12), rgba(45, 212, 191, 0.08));
+        }
+
+        .panel-soft {
+            background: var(--panel-2);
+            border: 1px solid rgba(45, 212, 191, 0.18);
+        }
+
+        .stat {
+            border-left: 1px solid rgba(96, 165, 250, 0.2);
+            padding-left: 16px;
+        }
+
+        .bar-wrap {
+            background: rgba(6, 12, 20, 0.7);
+            border: 1px solid rgba(96, 165, 250, 0.25);
+            border-radius: 999px;
+            padding: 4px;
+        }
+
+        .bar-fill {
+            height: 8px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent-2), var(--accent));
+            transition: width 0.8s ease;
+        }
+
+        .tag {
+            font-size: 10px;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .badge {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(96, 165, 250, 0.12);
+            color: var(--muted);
+            border: 1px solid rgba(96, 165, 250, 0.3);
+        }
+
+        .card-hover {
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-3px);
+            border-color: rgba(246, 196, 83, 0.45);
+            box-shadow: 0 20px 40px rgba(2, 10, 20, 0.6);
+        }
+
+        .reveal {
+            opacity: 0;
+            transform: translateY(12px);
+            animation: rise 0.7s ease forwards;
+            animation-delay: var(--d, 0s);
+        }
+
+        @keyframes rise {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .boot-screen {
+            background: linear-gradient(135deg, rgba(8, 12, 20, 0.98), rgba(5, 7, 11, 0.98));
+        }
+
+        .boot-terminal {
+            border: 1px solid rgba(45, 212, 191, 0.4);
+            background: rgba(8, 14, 22, 0.85);
+            box-shadow: 0 0 30px rgba(45, 212, 191, 0.2);
+        }
+
+        .loading-bar {
+            animation: load 1.4s ease-in-out forwards;
+        }
+
+        @keyframes load {
+            0% {
+                width: 0%;
+            }
+
+            100% {
+                width: 100%;
+            }
+        }
+
+        .mono-small {
+            font-size: 10px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .scroll-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scroll-thin::-webkit-scrollbar-track {
+            background: rgba(6, 10, 16, 0.4);
+        }
+
+        .scroll-thin::-webkit-scrollbar-thumb {
+            background: rgba(96, 165, 250, 0.5);
+            border-radius: 999px;
+        }
+
+        @media (max-width: 768px) {
+            .brand-sub {
+                display: none;
+            }
+
+            .chip {
+                letter-spacing: 0.12em;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .signal-sweep,
+            .dot,
+            .reveal,
+            .loading-bar {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="h-screen flex flex-col">
+
+    <div class="grid-pattern"></div>
+    <div class="signal-sweep"></div>
+    <div class="noise"></div>
+
+    <div id="boot-screen" class="boot-screen fixed inset-0 z-[60] flex items-center justify-center p-8">
+        <div class="max-w-md w-full p-6 boot-terminal">
+            <p class="mb-2 mono text-[11px] tracking-[0.28em] text-amber-200">OPS_DECK v2.3 // PREVIEW LOAD</p>
+            <div id="boot-text" class="mono text-[10px] space-y-1 opacity-80 mb-4 h-20"></div>
+            <div class="w-full bg-slate-900 h-1 relative overflow-hidden rounded-full">
+                <div class="absolute top-0 left-0 h-full bg-gradient-to-r from-teal-300 via-amber-300 to-sky-400 loading-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-interface" class="flex flex-col h-full opacity-0 transition-opacity duration-700">
+
+        <header class="top-bar p-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div class="flex flex-col">
+                    <span class="brand-mark">SecondBrain</span>
+                    <span class="brand-sub">Ops Deck</span>
+                </div>
+                <span class="badge mono hidden lg:inline">SYNC LANE: LIVE</span>
+            </div>
+            <div class="flex gap-3 items-center">
+                <span class="chip mono"><span class="dot"></span> focus: deep</span>
+                <span class="chip chip-amber mono"><i data-lucide="sparkles" class="w-3 h-3"></i> mode: build</span>
+                <span class="mono text-[10px] uppercase tracking-[0.3em] text-slate-400">Operator: Rob</span>
+            </div>
+        </header>
+
+        <div class="flex flex-1 overflow-hidden">
+
+            <aside class="side-panel w-20 sm:w-64 flex flex-col">
+                <div class="p-4 section-label mono">Active Modules</div>
+                <nav id="project-nav" class="flex-1 overflow-y-auto scroll-thin">
+                </nav>
+
+                <div class="p-4 border-t border-slate-800/60 bg-slate-950/80">
+                    <div class="mono-small mb-2">Signal Log</div>
+                    <div class="mono text-[9px] text-slate-400 leading-tight">
+                        <span class="text-emerald-300">[11:02] CAPTURE_FLOW CONNECTED</span><br />
+                        [11:09] REVIEW QUEUE SYNCED<br />
+                        [11:21] PUBLISH PIPE READY
+                    </div>
+                </div>
+            </aside>
+
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 relative scroll-thin">
+
+                <div class="relative z-10 grid grid-cols-1 lg:grid-cols-4 gap-5 mb-6">
+
+                    <div class="lg:col-span-3 panel panel-hero p-6 reveal" style="--d: 0.05s;">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                            <div>
+                                <h2 id="prj-title" class="text-2xl font-semibold tracking-[0.2em] uppercase mb-2">SYSTEM</h2>
+                                <p id="prj-subtitle" class="mono text-[10px] text-slate-400 uppercase tracking-[0.25em]">Focus Area</p>
+                            </div>
+                            <div class="flex gap-4">
+                                <div class="text-right stat">
+                                    <div class="tag mono">Crew</div>
+                                    <div id="prj-crew" class="text-2xl font-semibold text-teal-200">00</div>
+                                </div>
+                                <div class="text-right stat">
+                                    <div class="tag mono">Urgent</div>
+                                    <div id="prj-urgent" class="text-2xl font-semibold text-amber-300">0</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-6">
+                            <div class="flex justify-between text-[10px] mb-2 mono text-slate-400 uppercase tracking-[0.25em]">
+                                <span>Momentum</span>
+                                <span id="prj-percent">0%</span>
+                            </div>
+                            <div class="bar-wrap">
+                                <div id="prj-bar" class="bar-fill" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="panel panel-soft p-4 card-hover">
+                                <div class="flex items-center gap-2 text-[10px] font-semibold text-teal-200 mb-3 uppercase tracking-[0.22em]">
+                                    <i data-lucide="layers" class="w-3 h-3"></i> Capture
+                                </div>
+                                <div class="space-y-2 mono text-[10px] text-slate-300">
+                                    <p class="flex justify-between"><span>INBOX:</span> <span class="text-emerald-300">CLEAN</span></p>
+                                    <p class="flex justify-between"><span>QUEUE:</span> <span>12 ITEMS</span></p>
+                                    <p class="flex justify-between"><span>LAST:</span> <span>08:24</span></p>
+                                </div>
+                            </div>
+
+                            <div class="panel panel-soft p-4 card-hover">
+                                <div class="flex items-center gap-2 text-[10px] font-semibold text-teal-200 mb-3 uppercase tracking-[0.22em]">
+                                    <i data-lucide="brain" class="w-3 h-3"></i> Synthesis
+                                </div>
+                                <div class="space-y-2 mono text-[10px] text-slate-300">
+                                    <p class="flex justify-between"><span>MODE:</span> <span class="text-amber-200">DEEP WORK</span></p>
+                                    <p class="flex justify-between"><span>HORIZON:</span> <span>7 DAYS</span></p>
+                                    <p class="flex justify-between"><span>NOTES:</span> <span>24 TAGGED</span></p>
+                                </div>
+                            </div>
+
+                            <div class="panel panel-soft p-4 card-hover">
+                                <div class="flex items-center gap-2 text-[10px] font-semibold text-teal-200 mb-3 uppercase tracking-[0.22em]">
+                                    <i data-lucide="send" class="w-3 h-3"></i> Publish
+                                </div>
+                                <div class="space-y-2 mono text-[10px] text-slate-300">
+                                    <p class="flex justify-between"><span>PIPE:</span> <span class="text-emerald-300">GREEN</span></p>
+                                    <p class="flex justify-between"><span>ASSETS:</span> <span>6 READY</span></p>
+                                    <p class="flex justify-between"><span>NEXT:</span> <span>THU</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel panel-soft p-4 flex flex-col h-full reveal" style="--d: 0.12s;">
+                        <h3 class="text-[10px] font-semibold tracking-[0.28em] text-slate-400 mb-4 flex items-center gap-2 uppercase">
+                            <i data-lucide="heart-pulse" class="w-3 h-3 text-rose-300"></i> Daily Loop
+                        </h3>
+                        <div class="flex-1 space-y-3" id="habit-list"></div>
+                        <div class="mt-4 pt-4 border-t border-slate-800/60 mono text-[9px] text-slate-500 italic">
+                            "Small wins, compounding velocity."
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                    <div class="panel panel-soft p-4 flex flex-col gap-3 reveal" style="--d: 0.2s;">
+                        <div class="flex items-center justify-between border-b border-slate-800/60 pb-2">
+                            <h3 class="text-[10px] font-semibold tracking-[0.28em] uppercase flex items-center gap-2">
+                                <i data-lucide="terminal" class="w-3 h-3"></i> Priority Queue
+                            </h3>
+                        </div>
+                        <div class="space-y-2 text-[11px]" id="task-list"></div>
+                    </div>
+
+                    <div class="panel panel-soft p-4 flex flex-col gap-3 reveal" style="--d: 0.26s;">
+                        <div class="flex items-center justify-between border-b border-slate-800/60 pb-2">
+                            <h3 class="text-[10px] font-semibold tracking-[0.28em] uppercase flex items-center gap-2">
+                                <i data-lucide="users" class="w-3 h-3"></i> Capacity
+                            </h3>
+                        </div>
+                        <div class="space-y-4 pt-1">
+                            <div>
+                                <div class="flex justify-between mono text-[9px] font-semibold mb-1 text-slate-400">
+                                    <span>FOCUS ENERGY</span> <span>78%</span></div>
+                                <div class="h-1 bg-slate-900/70 rounded-full">
+                                    <div class="h-full bg-gradient-to-r from-teal-300 to-sky-400 rounded-full" style="width: 78%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mono text-[9px] font-semibold mb-1 text-slate-400">
+                                    <span>PROJECT RUNWAY</span> <span>60%</span></div>
+                                <div class="h-1 bg-slate-900/70 rounded-full">
+                                    <div class="h-full bg-gradient-to-r from-amber-200 to-rose-300 rounded-full" style="width: 60%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between mono text-[9px] font-semibold mb-1 text-slate-400">
+                                    <span>TEAM ALIGNMENT</span> <span>OPTIMAL</span></div>
+                                <div class="h-1 bg-slate-900/70 rounded-full">
+                                    <div class="h-full bg-gradient-to-r from-sky-400 to-teal-200 rounded-full" style="width: 88%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel panel-soft p-4 flex flex-col gap-3 reveal" style="--d: 0.32s;">
+                        <div class="flex items-center justify-between border-b border-slate-800/60 pb-2">
+                            <h3 class="text-[10px] font-semibold tracking-[0.28em] uppercase flex items-center gap-2">
+                                <i data-lucide="shield" class="w-3 h-3"></i> Signal Feed
+                            </h3>
+                        </div>
+                        <div class="flex-1 overflow-y-auto max-h-[160px] text-[10px] space-y-2 mono text-slate-400">
+                            <p class="text-emerald-300">[09:12] SYSTEM: Capture pipeline cleared 6 items.</p>
+                            <p class="text-amber-200 font-semibold">[10:05] ALERT: Research queue hitting threshold.</p>
+                            <p class="text-slate-300">[10:34] NOTES: Synthesis session logged (45 min).</p>
+                            <p class="text-sky-300">[11:03] PUBLISH: Draft 2 scheduled for review.</p>
+                            <p class="text-emerald-300">[11:26] AUTOMATION: Digest summary delivered.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+
+        <footer class="h-9 border-t border-slate-800/60 bg-slate-950/80 flex items-center px-4 text-[9px] uppercase tracking-[0.25em] justify-between text-slate-500">
+            <div class="flex gap-6">
+                <span>HQ_COORD: 32.4487 N, 99.7331 W</span>
+                <span class="hidden sm:inline">PROFILE: SECOND_BRAIN_V2</span>
+            </div>
+            <div class="flex gap-4 items-center">
+                <span class="flex items-center gap-1"><i data-lucide="zap" class="w-3 h-3 text-amber-300"></i> POWER: MAX</span>
+                <span>2026-02-02 // PREVIEW MODE</span>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const initIcons = () => {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        };
+
+        const projects = [
+            {
+                id: 'CAPTURE',
+                name: 'CAPTURE_PIPELINE',
+                progress: 64,
+                status: 'INBOX CLEAR + ORGANIZE',
+                crew: 12,
+                urgent: 2,
+                client: 'SECOND_BRAIN',
+                focus: 'Triage + Tag'
+            },
+            {
+                id: 'SYNTH',
+                name: 'SYNTHESIS_LAB',
+                progress: 41,
+                status: 'RESEARCH BUILD',
+                crew: 7,
+                urgent: 4,
+                client: 'KNOWLEDGE OPS',
+                focus: 'Deep Work Blocks'
+            },
+            {
+                id: 'PUBLISH',
+                name: 'PUBLISH_STACK',
+                progress: 22,
+                status: 'DRAFTING',
+                crew: 3,
+                urgent: 1,
+                client: 'AUDIENCE',
+                focus: 'Output Pipeline'
+            }
+        ];
+
+        const habits = [
+            { label: "INBOX_ZERO", done: true },
+            { label: "DEEP_WORK_BLOCK", done: false },
+            { label: "MOVE / TRAIN", done: true },
+            { label: "STANDUP_REVIEW", done: true },
+            { label: "FINISH_1_DRAFT", done: false },
+            { label: "SHUTDOWN_RITUAL", done: false }
+        ];
+
+        const tasks = [
+            { label: "Refactor capture tags", urgent: true },
+            { label: "Outline synthesis session", urgent: false },
+            { label: "Review draft release plan", urgent: true },
+            { label: "Archive stale research", urgent: false },
+            { label: "Schedule weekly review", urgent: false }
+        ];
+
+        let activeId = 'CAPTURE';
+
+        function renderNav() {
+            const nav = document.getElementById('project-nav');
+            if (!nav) return;
+            nav.innerHTML = '';
+            projects.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = `nav-btn ${p.id === activeId ? 'active' : ''}`;
+                btn.innerHTML = `
+                    <div class="flex flex-col gap-2">
+                        <span class="nav-title">${p.name}</span>
+                        <span class="nav-sub">${p.status}</span>
+                    </div>
+                `;
+                btn.onclick = () => { activeId = p.id; updateDashboard(); renderNav(); };
+                nav.appendChild(btn);
+            });
+        }
+
+        function updateDashboard() {
+            const p = projects.find(proj => proj.id === activeId);
+            if (!p) return;
+            document.getElementById('prj-title').textContent = p.name;
+            document.getElementById('prj-subtitle').textContent = `CLIENT: ${p.client} // FOCUS: ${p.focus}`;
+            document.getElementById('prj-crew').textContent = p.crew;
+            document.getElementById('prj-urgent').textContent = p.urgent;
+            document.getElementById('prj-percent').textContent = p.progress + '%';
+            document.getElementById('prj-bar').style.width = p.progress + '%';
+        }
+
+        function renderHabits() {
+            const list = document.getElementById('habit-list');
+            if (!list) return;
+            list.innerHTML = habits.map(h => `
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 border border-teal-300/60 flex items-center justify-center ${h.done ? 'bg-teal-300 shadow-[0_0_6px_rgba(45,212,191,0.8)]' : 'opacity-30'}">
+                        ${h.done ? '<span class="text-black font-bold text-[8px]">OK</span>' : ''}
+                    </div>
+                    <span class="mono text-[10px] tracking-[0.25em] ${h.done ? 'opacity-100 font-semibold' : 'opacity-40 line-through'}">${h.label}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderTasks() {
+            const list = document.getElementById('task-list');
+            if (!list) return;
+            list.innerHTML = tasks.map(t => `
+                <div class="p-2 border-l-2 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-900/40 transition-colors ${t.urgent ? 'border-amber-300 bg-amber-300/10' : 'border-slate-800'}">
+                    <span class="truncate ${t.urgent ? 'text-amber-200 font-semibold' : 'text-slate-300'}">${t.label}</span>
+                    ${t.urgent ? '<i data-lucide="alert-triangle" class="w-3 h-3 text-amber-200"></i>' : ''}
+                </div>
+            `).join('');
+            initIcons();
+        }
+
+        const startBoot = () => {
+            const bootText = document.getElementById('boot-text');
+            const lines = [
+                "ROUTING: SIGNAL_GRID... OK",
+                "INDEXING: CAPTURE_LAYERS... OK",
+                "CALIBRATING: SYNTHESIS_LOOP... OK",
+                "ARMING: PUBLISH_STACK... OK"
+            ];
+
+            let lineIndex = 0;
+            const addLine = () => {
+                if (lineIndex < lines.length) {
+                    const p = document.createElement('p');
+                    p.textContent = lines[lineIndex];
+                    if (bootText) bootText.appendChild(p);
+                    lineIndex++;
+                    setTimeout(addLine, 280);
+                } else {
+                    setTimeout(() => {
+                        const bootScreen = document.getElementById('boot-screen');
+                        const mainInterface = document.getElementById('main-interface');
+                        if (bootScreen) bootScreen.style.display = 'none';
+                        if (mainInterface) mainInterface.style.opacity = '1';
+                    }, 700);
+                }
+            };
+            setTimeout(addLine, 400);
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderNav();
+            updateDashboard();
+            renderHabits();
+            renderTasks();
+            startBoot();
+            initIcons();
+
+            setTimeout(() => {
+                const bootScreen = document.getElementById('boot-screen');
+                if (bootScreen && bootScreen.style.display !== 'none') {
+                    bootScreen.style.display = 'none';
+                    document.getElementById('main-interface').style.opacity = '1';
+                }
+            }, 5000);
+        });
+
+    </script>
+</body>
+
+</html>
