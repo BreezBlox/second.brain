@@ -1,52 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import "./App.css";
-import { auth, db, provider } from "./firebase";
-import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  onSnapshot,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-  writeBatch,
-} from "firebase/firestore";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
 
-const sampleProjects = [
-  {
-    id: "CAPTURE",
-    name: "CAPTURE_PIPELINE",
-    progress: 64,
-    status: "INBOX CLEAR + ORGANIZE",
-    crew: 12,
-    urgent: 2,
-    client: "SECOND_BRAIN",
-    focus: "Triage + Tag",
-  },
-  {
-    id: "SYNTH",
-    name: "SYNTHESIS_LAB",
-    progress: 41,
-    status: "RESEARCH BUILD",
-    crew: 7,
-    urgent: 4,
-    client: "KNOWLEDGE OPS",
-    focus: "Deep Work Blocks",
-  },
-  {
-    id: "PUBLISH",
-    name: "PUBLISH_STACK",
-    progress: 22,
-    status: "DRAFTING",
-    crew: 3,
-    urgent: 1,
-    client: "AUDIENCE",
-    focus: "Output Pipeline",
-  },
-];
+const API_BASE = import.meta.env.VITE_API_BASE || "";
+const API_KEY = import.meta.env.VITE_API_KEY || "";
 
 const habits = [
   { label: "INBOX_ZERO", done: true },
@@ -57,325 +13,121 @@ const habits = [
   { label: "SHUTDOWN_RITUAL", done: false },
 ];
 
-const signalFeed = [
-  "[09:12] SYSTEM: Capture pipeline cleared 6 items.",
-  "[10:05] ALERT: Research queue hitting threshold.",
-  "[10:34] NOTES: Synthesis session logged (45 min).",
-  "[11:03] PUBLISH: Draft 2 scheduled for review.",
-  "[11:26] AUTOMATION: Digest summary delivered.",
-];
+async function fetchJson(path, options = {}) {
+  const headers = {
+    "Content-Type": "application/json",
+    ...(options.headers || {}),
+  };
+  if (API_KEY) {
+    headers["X-API-Key"] = API_KEY;
+  }
+  const response = await fetch(`${API_BASE}${path}`, {
+    credentials: "include",
+    ...options,
+    headers,
+  });
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(message || "Request failed");
+  }
+  return response.json();
+}
 
 function App() {
-  const [projects, setProjects] = useState([]);
-  const [inbox, setInbox] = useState([]);
-  const [projectName, setProjectName] = useState("");
-  const [projectPath, setProjectPath] = useState("");
-  const [projectStatus, setProjectStatus] = useState("active");
-  const [projectParentId, setProjectParentId] = useState("");
-  const [inboxText, setInboxText] = useState("");
-  const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+  const [bbl, setBbl] = useState(null);
   const [activeId, setActiveId] = useState("");
-  const [booting, setBooting] = useState(true);
+  const [inboxText, setInboxText] = useState("");
+  const [error, setError] = useState("");
+  const [togglingId, setTogglingId] = useState("");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setLoadingUser(false);
-    });
-    return () => unsub();
+    checkStatus();
   }, []);
 
-  useEffect(() => {
-    const bootTimeout = setTimeout(() => setBooting(false), 1800);
-    const bootFailsafe = setTimeout(() => setBooting(false), 5000);
-    return () => {
-      clearTimeout(bootTimeout);
-      clearTimeout(bootFailsafe);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!user) {
-      setProjects([]);
-      setInbox([]);
-      return undefined;
-    }
-
-    const projectQuery = query(
-      collection(db, "projects"),
-      where("owner_uid", "==", user.uid)
-    );
-    const inboxQuery = query(
-      collection(db, "inbox"),
-      where("owner_uid", "==", user.uid)
-    );
-
-    const unsubProjects = onSnapshot(
-      projectQuery,
-      (snapshot) => {
-        const data = snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        }));
-        setError("");
-        setProjects(data);
-      },
-      (err) => setError(err.message)
-    );
-
-    const unsubInbox = onSnapshot(
-      inboxQuery,
-      (snapshot) => {
-        const data = snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data(),
-        }));
-        setError("");
-        setInbox(data);
-      },
-      (err) => setError(err.message)
-    );
-
-    return () => {
-      unsubProjects();
-      unsubInbox();
-    };
-  }, [user]);
-
-  useEffect(() => {
-    if (!activeId && projects.length > 0) {
-      setActiveId(projects[0].id);
-    }
-  }, [activeId, projects]);
-
-  async function handleSignIn() {
+  async function checkStatus() {
+    setLoading(true);
     setError("");
-    await signInWithPopup(auth, provider);
+    try {
+      const status = await fetchJson("/api/drive/status");
+      if (!status.authorized) {
+        setAuthorized(false);
+        setLoading(false);
+        return;
+      }
+      if (status.error) {
+        setError(status.error);
+      }
+      setAuthorized(true);
+      await loadSummary();
+    } catch (err) {
+      setError(err.message || "Unable to reach server.");
+      setLoading(false);
+    }
   }
 
-  async function handleSignOut() {
-    await signOut(auth);
+  async function loadSummary() {
+    try {
+      const summary = await fetchJson("/api/bbl/summary");
+      setBbl(summary);
+      setActiveId((prev) => prev || summary.projects?.[0]?.id || "");
+    } catch (err) {
+      setError(err.message || "Failed to load BBL summary.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function createProject(event) {
+  async function handleAddInbox(event) {
     event.preventDefault();
-    if (!projectName.trim() || !user) return;
+    const text = inboxText.trim();
+    if (!text) return;
     setError("");
-    await addDoc(collection(db, "projects"), {
-      owner_uid: user.uid,
-      name: projectName.trim(),
-      path: projectPath.trim(),
-      status: projectStatus,
-      summary: "",
-      last_left_off: "",
-      next_action: "",
-      tags: [],
-      parent_id: projectParentId || null,
-      created_at: serverTimestamp(),
-      last_updated_at: serverTimestamp(),
-    });
-    setProjectName("");
-    setProjectPath("");
-    setProjectStatus("active");
-    setProjectParentId("");
-  }
-
-  function updateProjectField(id, field, value) {
-    setProjects((prev) =>
-      prev.map((project) =>
-        project.id === id ? { ...project, [field]: value } : project
-      )
-    );
-  }
-
-  async function saveProject(id) {
-    const project = projects.find((item) => item.id === id);
-    if (!project) return;
-    setError("");
-    await updateDoc(doc(db, "projects", id), {
-      name: project.name,
-      path: project.path,
-      status: project.status,
-      summary: project.summary || "",
-      last_left_off: project.last_left_off || "",
-      next_action: project.next_action || "",
-      tags: Array.isArray(project.tags) ? project.tags : [],
-      parent_id: project.parent_id || null,
-      last_updated_at: serverTimestamp(),
-    });
-  }
-
-  async function deleteProject(id) {
-    const target = projects.find((item) => item.id === id);
-    if (!target) return;
-    const ok = window.confirm(
-      `Delete "${target.name}"? Child projects will be unlinked.`
-    );
-    if (!ok) return;
-    setError("");
-
-    const batch = writeBatch(db);
-    const children = projects.filter((item) => item.parent_id === id);
-    for (const child of children) {
-      batch.update(doc(db, "projects", child.id), {
-        parent_id: null,
-        last_updated_at: serverTimestamp(),
+    try {
+      await fetchJson("/api/bbl/inbox", {
+        method: "POST",
+        body: JSON.stringify({ text }),
       });
+      setInboxText("");
+      await loadSummary();
+    } catch (err) {
+      setError(err.message || "Failed to add inbox item.");
     }
-    batch.delete(doc(db, "projects", id));
-    await batch.commit();
   }
 
-  async function createInboxItem(event) {
-    event.preventDefault();
-    if (!inboxText.trim() || !user) return;
+  async function handleToggleTask(task) {
+    if (!task?.fileId) return;
     setError("");
-    await addDoc(collection(db, "inbox"), {
-      owner_uid: user.uid,
-      text: inboxText.trim(),
-      created_at: serverTimestamp(),
-      linked_project_id: null,
-      converted_to: null,
-    });
-    setInboxText("");
+    setTogglingId(task.id);
+    try {
+      await fetchJson("/api/bbl/tasks/toggle", {
+        method: "POST",
+        body: JSON.stringify({
+          fileId: task.fileId,
+          lineNumber: task.lineNumber,
+        }),
+      });
+      await loadSummary();
+    } catch (err) {
+      setError(err.message || "Failed to toggle task.");
+    } finally {
+      setTogglingId("");
+    }
   }
 
-  const parentProjects = useMemo(
-    () => projects.filter((project) => !project.parent_id),
-    [projects]
-  );
-  const childProjects = useMemo(
-    () => projects.filter((project) => project.parent_id),
-    [projects]
-  );
-  const childrenByParent = useMemo(() => {
-    return childProjects.reduce((map, project) => {
-      const list = map.get(project.parent_id) || [];
-      list.push(project);
-      map.set(project.parent_id, list);
-      return map;
-    }, new Map());
-  }, [childProjects]);
-
-  const displayProjects = useMemo(() => {
-    if (projects.length === 0) return sampleProjects;
-    return projects.map((project) => {
-      const tagCount = Array.isArray(project.tags) ? project.tags.length : 0;
-      return {
-        id: project.id,
-        name: project.name
-          ? project.name.toUpperCase().replace(/\s+/g, "_")
-          : "PROJECT",
-        progress: Math.min(100, tagCount * 10),
-        status: (project.status || "active").toUpperCase(),
-        crew: 1,
-        urgent: project.next_action ? 1 : 0,
-        client: "SECOND_BRAIN",
-        focus: project.next_action
-          ? project.next_action.slice(0, 24).toUpperCase()
-          : "FOCUS + BUILD",
-      };
-    });
-  }, [projects]);
-
+  const projects = bbl?.projects || [];
   const activeProject = useMemo(() => {
-    if (displayProjects.length === 0) return null;
-    const resolvedId = activeId || displayProjects[0].id;
-    return displayProjects.find((proj) => proj.id === resolvedId) || null;
-  }, [activeId, displayProjects]);
+    if (!projects.length) return null;
+    return projects.find((project) => project.id === activeId) || projects[0];
+  }, [projects, activeId]);
 
-  function formatTimestamp(value) {
-    if (!value) return "";
-    if (typeof value.toDate === "function") {
-      return value.toDate().toLocaleString();
-    }
-    if (value instanceof Date) {
-      return value.toLocaleString();
-    }
-    const parsed = new Date(value);
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toLocaleString();
-    }
-    return "";
-  }
+  const currentSprint = bbl?.currentSprint || [];
+  const signalFeed = bbl?.signalFeed || [];
+  const inbox = bbl?.inbox || [];
+  const tasks = bbl?.tasks || [];
 
-  function renderProjectCard(project) {
-    return (
-      <div className="card" key={project.id}>
-        <div className="card-header">
-          <div>
-            <h3>{project.name}</h3>
-            <p className="muted">{project.path || "No path yet"}</p>
-          </div>
-          <span className={`status ${project.status}`}>{project.status}</span>
-        </div>
-        <label>
-          Parent project
-          <select
-            value={project.parent_id || ""}
-            onChange={(event) =>
-              updateProjectField(project.id, "parent_id", event.target.value)
-            }
-          >
-            <option value="">(no parent)</option>
-            {parentOptions(project.id).map((parent) => (
-              <option key={parent.id} value={parent.id}>
-                {parent.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Last left off
-          <textarea
-            value={project.last_left_off || ""}
-            onChange={(event) =>
-              updateProjectField(
-                project.id,
-                "last_left_off",
-                event.target.value
-              )
-            }
-          />
-        </label>
-        <label>
-          Next action
-          <textarea
-            value={project.next_action || ""}
-            onChange={(event) =>
-              updateProjectField(project.id, "next_action", event.target.value)
-            }
-          />
-        </label>
-        <div className="card-actions">
-          <button
-            className="ghost"
-            type="button"
-            onClick={() => saveProject(project.id)}
-          >
-            Save notes
-          </button>
-          <button
-            className="danger"
-            type="button"
-            onClick={() => deleteProject(project.id)}
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  function parentOptions(currentId) {
-    return parentProjects.filter((project) => project.id !== currentId);
-  }
-
-  const todayStamp = new Date().toISOString().slice(0, 10);
-
-  if (loadingUser) {
+  if (loading) {
     return (
       <div className="app-shell">
         <div className="grid-pattern"></div>
@@ -386,7 +138,7 @@ function App() {
     );
   }
 
-  if (!user) {
+  if (!authorized) {
     return (
       <div className="app-shell">
         <div className="grid-pattern"></div>
@@ -402,12 +154,19 @@ function App() {
           </header>
           <div className="auth-hero panel panel-hero">
             <p className="eyebrow">Second Brain</p>
-            <h1>Ops deck for calm control</h1>
+            <h1>Connect your Drive workspace</h1>
             <p className="subhead">
-              Sign in with Google to access your private workspace.
+              Authorize access to your BBL.pkg so the ops deck can read and write
+              live files.
             </p>
-            <button className="auth-button" type="button" onClick={handleSignIn}>
-              Sign in with Google
+            <button
+              className="auth-button"
+              type="button"
+              onClick={() => {
+                window.location.href = `${API_BASE}/auth/google`;
+              }}
+            >
+              Connect Google Drive
             </button>
             {error ? <p className="error">{error}</p> : null}
           </div>
@@ -422,41 +181,23 @@ function App() {
       <div className="signal-sweep"></div>
       <div className="noise"></div>
 
-      {booting ? (
-        <div className="boot-screen">
-          <div className="boot-terminal">
-            <p className="mono boot-title">OPS_DECK v2.3 // INITIALIZING</p>
-            <div className="mono boot-text">
-              <p>ROUTING: SIGNAL_GRID... OK</p>
-              <p>INDEXING: CAPTURE_LAYERS... OK</p>
-              <p>CALIBRATING: SYNTHESIS_LOOP... OK</p>
-              <p>ARMING: PUBLISH_STACK... OK</p>
-            </div>
-            <div className="boot-bar">
-              <span className="boot-bar-fill"></span>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      <div className={`app-frame ${booting ? "is-booting" : "ready"}`}>
+      <div className="app-frame ready">
         <header className="top-bar">
           <div className="top-left">
             <div className="brand-stack">
               <span className="brand-mark">SecondBrain</span>
               <span className="brand-sub">Ops Deck</span>
             </div>
-            <span className="badge mono hidden-sm">SYNC LANE: LIVE</span>
+            <span className="badge mono hidden-sm">
+              SYNC LANE: {bbl?.folder?.name || "LIVE"}
+            </span>
           </div>
           <div className="top-right">
             <span className="chip mono">
               <span className="dot"></span> focus: deep
             </span>
             <span className="chip chip-amber mono">mode: build</span>
-            <span className="mono operator">Operator: {user.email}</span>
-            <button className="ghost small" type="button" onClick={handleSignOut}>
-              Sign out
-            </button>
+            <span className="mono operator">Operator: Drive</span>
           </div>
         </header>
 
@@ -464,7 +205,7 @@ function App() {
           <aside className="side-panel">
             <div className="section-label mono">Active Modules</div>
             <nav className="nav scroll-thin">
-              {displayProjects.map((project) => (
+              {projects.map((project) => (
                 <button
                   key={project.id}
                   className={`nav-btn ${
@@ -485,9 +226,9 @@ function App() {
             <div className="side-footer">
               <div className="mono-small">Signal Log</div>
               <div className="mono side-log">
-                <span className="text-emerald">[11:02] CAPTURE_FLOW CONNECTED</span>
-                <span>[11:09] REVIEW QUEUE SYNCED</span>
-                <span>[11:21] PUBLISH PIPE READY</span>
+                <span className="text-emerald">[SYNC] DRIVE CONNECTED</span>
+                <span>[BBL] {bbl?.roadmap?.lastUpdated || "READY"}</span>
+                <span>[STATUS] {bbl?.roadmap?.status || "ACTIVE"}</span>
               </div>
             </div>
           </aside>
@@ -496,7 +237,10 @@ function App() {
             {error ? <p className="error">{error}</p> : null}
 
             <div className="hero-grid">
-              <div className="panel panel-hero hero-card reveal" style={{ "--d": "0.05s" }}>
+              <div
+                className="panel panel-hero hero-card reveal"
+                style={{ "--d": "0.05s" }}
+              >
                 <div className="hero-header">
                   <div>
                     <h2 id="prj-title" className="hero-title">
@@ -544,25 +288,21 @@ function App() {
 
                 <div className="hero-subgrid">
                   <div className="panel panel-soft card-hover">
-                    <div className="subpanel-title">
-                      Capture
-                    </div>
+                    <div className="subpanel-title">Capture</div>
                     <div className="subpanel-list mono">
                       <p>
                         <span>INBOX:</span> <span className="text-emerald">{inbox.length}</span>
                       </p>
                       <p>
-                        <span>QUEUE:</span> <span>{projects.length} PROJECTS</span>
+                        <span>QUEUE:</span> <span>{projects.length} MODULES</span>
                       </p>
                       <p>
-                        <span>LAST:</span> <span>{todayStamp}</span>
+                        <span>LAST:</span> <span>{bbl?.roadmap?.lastUpdated || "--"}</span>
                       </p>
                     </div>
                   </div>
                   <div className="panel panel-soft card-hover">
-                    <div className="subpanel-title">
-                      Synthesis
-                    </div>
+                    <div className="subpanel-title">Synthesis</div>
                     <div className="subpanel-list mono">
                       <p>
                         <span>MODE:</span> <span className="text-amber">DEEP WORK</span>
@@ -576,15 +316,13 @@ function App() {
                     </div>
                   </div>
                   <div className="panel panel-soft card-hover">
-                    <div className="subpanel-title">
-                      Publish
-                    </div>
+                    <div className="subpanel-title">Publish</div>
                     <div className="subpanel-list mono">
                       <p>
                         <span>PIPE:</span> <span className="text-emerald">GREEN</span>
                       </p>
                       <p>
-                        <span>ASSETS:</span> <span>{projects.length} READY</span>
+                        <span>ASSETS:</span> <span>{bbl?.ingredients?.length || 0} READY</span>
                       </p>
                       <p>
                         <span>NEXT:</span> <span>THU</span>
@@ -594,21 +332,18 @@ function App() {
                 </div>
               </div>
 
-              <div className="panel panel-soft daily-panel reveal" style={{ "--d": "0.12s" }}>
-                <h3 className="daily-title">
-                  Daily Loop
-                </h3>
+              <div
+                className="panel panel-soft daily-panel reveal"
+                style={{ "--d": "0.12s" }}
+              >
+                <h3 className="daily-title">Daily Loop</h3>
                 <div className="habit-list">
                   {habits.map((habit) => (
                     <div className="habit-row" key={habit.label}>
-                      <div
-                        className={`habit-box ${habit.done ? "done" : ""}`}
-                      >
+                      <div className={`habit-box ${habit.done ? "done" : ""}`}>
                         {habit.done ? <span>OK</span> : null}
                       </div>
-                      <span
-                        className={`mono habit-label ${habit.done ? "" : "off"}`}
-                      >
+                      <span className={`mono habit-label ${habit.done ? "" : "off"}`}>
                         {habit.label}
                       </span>
                     </div>
@@ -622,82 +357,39 @@ function App() {
 
             <div className="content-grid">
               <div className="panel panel-soft reveal" style={{ "--d": "0.2s" }}>
-                <div className="panel-title">Projects</div>
-                <form className="form" onSubmit={createProject}>
-                  <input
-                    type="text"
-                    placeholder="Project name"
-                    value={projectName}
-                    onChange={(event) => setProjectName(event.target.value)}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Drive-relative path (optional)"
-                    value={projectPath}
-                    onChange={(event) => setProjectPath(event.target.value)}
-                  />
-                  <select
-                    value={projectStatus}
-                    onChange={(event) => setProjectStatus(event.target.value)}
-                  >
-                    <option value="active">Active</option>
-                    <option value="paused">Paused</option>
-                    <option value="obsolete">Obsolete</option>
-                  </select>
-                  <select
-                    value={projectParentId}
-                    onChange={(event) => setProjectParentId(event.target.value)}
-                  >
-                    <option value="">(no parent)</option>
-                    {parentProjects.map((parent) => (
-                      <option key={parent.id} value={parent.id}>
-                        {parent.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="submit">Add project</button>
-                </form>
-
-                <div className="card-list">
-                  {parentProjects.map((parent) => (
-                    <div className="group" key={parent.id}>
-                      <div className="group-title">
-                        Parent: <strong>{parent.name}</strong>
-                      </div>
-                      {renderProjectCard(parent)}
-                      {(childrenByParent.get(parent.id) || []).length > 0 && (
-                        <div className="child-list">
-                          {(childrenByParent.get(parent.id) || []).map((child) =>
-                            renderProjectCard(child)
-                          )}
+                <div className="panel-title">Priority Queue</div>
+                <div className="task-list mono">
+                  {tasks.length ? (
+                    tasks.map((task) => (
+                      <button
+                        key={task.id}
+                        type="button"
+                        className={`task-item ${task.done ? "done" : ""}`}
+                        onClick={() => handleToggleTask(task)}
+                        disabled={togglingId === task.id}
+                      >
+                        <div className="task-left">
+                          <span className="task-check">
+                            {task.done ? "OK" : ""}
+                          </span>
+                          <span className="task-text">{task.text}</span>
                         </div>
-                      )}
-                    </div>
-                  ))}
-                  {projects.filter(
-                    (project) =>
-                      project.parent_id &&
-                      !projects.some((p) => p.id === project.parent_id)
-                  ).length > 0 && (
-                    <div className="group">
-                      <div className="group-title">Unlinked projects</div>
-                      <div className="child-list">
-                        {projects
-                          .filter(
-                            (project) =>
-                              project.parent_id &&
-                              !projects.some((p) => p.id === project.parent_id)
-                          )
-                          .map((project) => renderProjectCard(project))}
-                      </div>
-                    </div>
+                        <span className="task-source">
+                          {task.source || "BBL"}
+                        </span>
+                      </button>
+                    ))
+                  ) : currentSprint.length ? (
+                    currentSprint.map((task) => <p key={task}>{task}</p>)
+                  ) : (
+                    <p>No sprint priorities found.</p>
                   )}
                 </div>
               </div>
 
               <div className="panel panel-soft reveal" style={{ "--d": "0.26s" }}>
                 <div className="panel-title">Inbox</div>
-                <form className="form" onSubmit={createInboxItem}>
+                <form className="form" onSubmit={handleAddInbox}>
                   <textarea
                     placeholder="Capture a thought..."
                     value={inboxText}
@@ -709,9 +401,7 @@ function App() {
                   {inbox.map((item) => (
                     <div className="card inbox" key={item.id}>
                       <p>{item.text}</p>
-                      <span className="muted">
-                        {formatTimestamp(item.created_at)}
-                      </span>
+                      {item.date ? <span className="muted">{item.date}</span> : null}
                     </div>
                   ))}
                 </div>
@@ -736,7 +426,7 @@ function App() {
           </div>
           <div className="footer-right">
             <span>POWER: MAX</span>
-            <span>{todayStamp} // LIVE MODE</span>
+            <span>{bbl?.roadmap?.lastUpdated || "LIVE"} // DRIVE MODE</span>
           </div>
         </footer>
       </div>

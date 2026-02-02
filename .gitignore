@@ -3,3 +3,5 @@ dist/
 .env.local
 .env.*.local
 .firebase/
+data/drive_tokens.json
+data/drive_config.json

@@ -568,6 +568,77 @@ button.danger {
   margin-bottom: 16px;
 }
 
+.task-list {
+  display: grid;
+  gap: 10px;
+  font-size: 10px;
+  color: #cbd5f0;
+}
+
+.task-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: rgba(9, 16, 26, 0.7);
+  border-left: 3px solid rgba(96, 165, 250, 0.5);
+  border-radius: 12px;
+  padding: 8px 12px;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.task-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(246, 196, 83, 0.45);
+}
+
+.task-item.done {
+  border-left-color: rgba(45, 212, 191, 0.8);
+  color: rgba(155, 176, 207, 0.7);
+}
+
+.task-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-check {
+  width: 16px;
+  height: 16px;
+  border: 1px solid rgba(45, 212, 191, 0.7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  text-transform: uppercase;
+  color: #041018;
+  background: transparent;
+}
+
+.task-item.done .task-check {
+  background: #5eead4;
+  box-shadow: 0 0 6px rgba(45, 212, 191, 0.6);
+}
+
+.task-text {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.task-source {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .form {
   display: grid;
   gap: 12px;
@@ -762,6 +833,10 @@ label {
   margin: 60px auto;
   display: grid;
   gap: 16px;
+}
+
+.auth-button {
+  width: fit-content;
 }
 
 .eyebrow {
