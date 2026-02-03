@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env.local
 .env.*.local
+.env.production
 .firebase/
 data/drive_tokens.json
 data/drive_config.json

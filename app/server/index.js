@@ -557,12 +557,54 @@ app.get("/api/bbl/summary", async (req, res) => {
     signalFeed.push(`INGREDIENTS: ${ingredients.length}`);
     signalFeed.push(`ACTIVE MODULES: ${projects.length}`);
 
+    let nextUp = null;
+    if (roadmapFile) {
+      const firstOpen = tasks.find((task) => !task.done);
+      if (firstOpen) {
+        nextUp = {
+          title: firstOpen.text,
+          source: firstOpen.source || "Roadmap",
+          fileId: firstOpen.fileId,
+          lineNumber: firstOpen.lineNumber,
+          done: firstOpen.done,
+        };
+      }
+    }
+    if (!nextUp && secondBrainTaskFile) {
+      const secondText = await readFileText(drive, secondBrainTaskFile.id);
+      const secondTasks = parseTaskFile(secondText);
+      const openSecond = secondTasks.find((task) => !task.done);
+      if (openSecond) {
+        nextUp = {
+          title: openSecond.text,
+          source: "Second Brain",
+          fileId: secondBrainTaskFile.id,
+          lineNumber: openSecond.lineNumber,
+          done: openSecond.done,
+        };
+      }
+    }
+    if (!nextUp && roadmap.currentSprint.length) {
+      nextUp = {
+        title: roadmap.currentSprint[0],
+        source: "Current Sprint",
+      };
+    }
+    if (!nextUp && inbox.length) {
+      const latest = inbox[inbox.length - 1];
+      nextUp = {
+        title: latest.text,
+        source: "Inbox",
+      };
+    }
+
     res.json({
       folder,
       roadmap,
       projects,
       currentSprint: roadmap.currentSprint,
       tasks,
+      nextUp,
       ingredients,
       inbox,
       signalFeed,

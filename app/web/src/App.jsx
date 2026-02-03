@@ -126,6 +126,7 @@ function App() {
   const signalFeed = bbl?.signalFeed || [];
   const inbox = bbl?.inbox || [];
   const tasks = bbl?.tasks || [];
+  const nextUp = bbl?.nextUp || null;
 
   if (loading) {
     return (
@@ -332,25 +333,61 @@ function App() {
                 </div>
               </div>
 
-              <div
-                className="panel panel-soft daily-panel reveal"
-                style={{ "--d": "0.12s" }}
-              >
-                <h3 className="daily-title">Daily Loop</h3>
-                <div className="habit-list">
-                  {habits.map((habit) => (
-                    <div className="habit-row" key={habit.label}>
-                      <div className={`habit-box ${habit.done ? "done" : ""}`}>
-                        {habit.done ? <span>OK</span> : null}
+              <div className="side-stack">
+                <div
+                  className="panel panel-soft next-panel reveal"
+                  style={{ "--d": "0.1s" }}
+                >
+                  <h3 className="daily-title">Next Up</h3>
+                  {nextUp ? (
+                    <div className="next-card">
+                      <div className="next-title">{nextUp.title}</div>
+                      <div className="next-meta mono">
+                        Source: {nextUp.source || "BBL"}
                       </div>
-                      <span className={`mono habit-label ${habit.done ? "" : "off"}`}>
-                        {habit.label}
-                      </span>
+                      {nextUp.fileId ? (
+                        <button
+                          className="ghost small"
+                          type="button"
+                          onClick={() =>
+                            handleToggleTask({
+                              id: "next-up",
+                              fileId: nextUp.fileId,
+                              lineNumber: nextUp.lineNumber,
+                            })
+                          }
+                        >
+                          Mark done
+                        </button>
+                      ) : null}
                     </div>
-                  ))}
+                  ) : (
+                    <div className="next-empty">No next step found.</div>
+                  )}
                 </div>
-                <div className="daily-quote mono">
-                  "Small wins, compounding velocity."
+
+                <div
+                  className="panel panel-soft daily-panel reveal"
+                  style={{ "--d": "0.14s" }}
+                >
+                  <h3 className="daily-title">Daily Loop</h3>
+                  <div className="habit-list">
+                    {habits.map((habit) => (
+                      <div className="habit-row" key={habit.label}>
+                        <div className={`habit-box ${habit.done ? "done" : ""}`}>
+                          {habit.done ? <span>OK</span> : null}
+                        </div>
+                        <span
+                          className={`mono habit-label ${habit.done ? "" : "off"}`}
+                        >
+                          {habit.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="daily-quote mono">
+                    "Small wins, compounding velocity."
+                  </div>
                 </div>
               </div>
             </div>
