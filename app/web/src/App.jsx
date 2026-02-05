@@ -41,6 +41,8 @@ function App() {
   const [inboxText, setInboxText] = useState("");
   const [error, setError] = useState("");
   const [togglingId, setTogglingId] = useState("");
+  const [rootFolderName, setRootFolderName] = useState("");
+  const [creatingFolder, setCreatingFolder] = useState(false);
 
   useEffect(() => {
     checkStatus();
@@ -116,6 +118,26 @@ function App() {
     }
   }
 
+  async function handleCreateRootFolder(event) {
+    event.preventDefault();
+    const name = rootFolderName.trim();
+    if (!name) return;
+    setError("");
+    setCreatingFolder(true);
+    try {
+      await fetchJson("/api/bbl/folders", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      setRootFolderName("");
+      await loadSummary();
+    } catch (err) {
+      setError(err.message || "Failed to create folder.");
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
   const projects = bbl?.projects || [];
   const activeProject = useMemo(() => {
     if (!projects.length) return null;
@@ -127,6 +149,18 @@ function App() {
   const inbox = bbl?.inbox || [];
   const tasks = bbl?.tasks || [];
   const nextUp = bbl?.nextUp || null;
+  const projectFolders = bbl?.projectFolders || [];
+  const nextUpQueue = bbl?.nextUpQueue || [];
+  const nextUpItems = useMemo(() => {
+    if (nextUpQueue.length) return nextUpQueue;
+    if (!nextUp) return [];
+    return [
+      {
+        id: nextUp.fileId ? `next-up:${nextUp.fileId}:${nextUp.lineNumber}` : "next-up",
+        ...nextUp,
+      },
+    ];
+  }, [nextUp, nextUpQueue]);
 
   if (loading) {
     return (
@@ -205,6 +239,18 @@ function App() {
         <div className="app-body">
           <aside className="side-panel">
             <div className="section-label mono">Active Modules</div>
+            <form className="nav-form" onSubmit={handleCreateRootFolder}>
+              <input
+                className="nav-input"
+                type="text"
+                placeholder="Add root folder..."
+                value={rootFolderName}
+                onChange={(event) => setRootFolderName(event.target.value)}
+              />
+              <button type="submit" className="small" disabled={creatingFolder}>
+                {creatingFolder ? "Adding..." : "Add"}
+              </button>
+            </form>
             <nav className="nav scroll-thin">
               {projects.map((project) => (
                 <button
@@ -220,6 +266,28 @@ function App() {
                   <div className="nav-stack">
                     <span className="nav-title">{project.name}</span>
                     <span className="nav-sub">{project.status}</span>
+                  </div>
+                </button>
+              ))}
+              {projectFolders.length ? (
+                <div className="nav-divider mono-small">Root Folders</div>
+              ) : null}
+              {projectFolders.map((folder) => (
+                <button
+                  key={folder.id}
+                  className="nav-btn nav-folder"
+                  type="button"
+                  onClick={() =>
+                    window.open(
+                      `https://drive.google.com/drive/folders/${folder.id}`,
+                      "_blank",
+                      "noopener,noreferrer"
+                    )
+                  }
+                >
+                  <div className="nav-stack">
+                    <span className="nav-title">{folder.name}</span>
+                    <span className="nav-sub">ROOT FOLDER</span>
                   </div>
                 </button>
               ))}
@@ -338,28 +406,43 @@ function App() {
                   className="panel panel-soft next-panel reveal"
                   style={{ "--d": "0.1s" }}
                 >
-                  <h3 className="daily-title">Next Up</h3>
-                  {nextUp ? (
-                    <div className="next-card">
-                      <div className="next-title">{nextUp.title}</div>
-                      <div className="next-meta mono">
-                        Source: {nextUp.source || "BBL"}
-                      </div>
-                      {nextUp.fileId ? (
-                        <button
-                          className="ghost small"
-                          type="button"
-                          onClick={() =>
-                            handleToggleTask({
-                              id: "next-up",
-                              fileId: nextUp.fileId,
-                              lineNumber: nextUp.lineNumber,
-                            })
-                          }
+                  <div className="next-header">
+                    <h3 className="daily-title">Next Up</h3>
+                    {nextUpItems.length ? (
+                      <span className="mono next-count">
+                        {nextUpItems.length} queued
+                      </span>
+                    ) : null}
+                  </div>
+                  {nextUpItems.length ? (
+                    <div className="next-scroll scroll-thin">
+                      {nextUpItems.map((item, index) => (
+                        <div
+                          className={`next-card ${index === 0 ? "active" : ""}`}
+                          key={item.id || `${item.title}-${index}`}
                         >
-                          Mark done
-                        </button>
-                      ) : null}
+                          <div className="next-title">{item.title}</div>
+                          <div className="next-meta mono">
+                            Source: {item.source || "BBL"}
+                            {index === 0 ? " // NOW" : ""}
+                          </div>
+                          {item.fileId ? (
+                            <button
+                              className="ghost small"
+                              type="button"
+                              onClick={() =>
+                                handleToggleTask({
+                                  id: item.id || `next-up-${index}`,
+                                  fileId: item.fileId,
+                                  lineNumber: item.lineNumber,
+                                })
+                              }
+                            >
+                              Mark done
+                            </button>
+                          ) : null}
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="next-empty">No next step found.</div>

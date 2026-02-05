@@ -219,6 +219,19 @@ async function ensureInboxFile(drive, folderId) {
   return response.data;
 }
 
+async function createFolder(drive, parentId, name) {
+  const response = await drive.files.create({
+    requestBody: {
+      name,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [parentId],
+    },
+    fields: "id, name",
+    supportsAllDrives: true,
+  });
+  return response.data;
+}
+
 function parseCheckbox(line, lineNumber) {
   const match = line.match(/^\s*-\s*\[(x| |\/)\]\s*(.+)$/i);
   if (!match) return null;
@@ -475,6 +488,22 @@ app.get("/api/bbl/summary", async (req, res) => {
   }
   try {
     const folder = await resolveBblFolder(drive);
+    const rootFolders = await listAllFiles(
+      drive,
+      [
+        `"${folder.id}" in parents`,
+        "mimeType = 'application/vnd.google-apps.folder'",
+        "trashed = false",
+      ].join(" and "),
+      "files(id, name)"
+    );
+    const projectFolders = rootFolders
+      .filter((item) => {
+        if (!item.name) return false;
+        const lowered = item.name.toLowerCase();
+        return lowered !== "tools" && lowered !== "ingredients";
+      })
+      .map((item) => ({ id: item.id, name: item.name }));
     const roadmapFile = await findChildByName(drive, folder.id, "PROJECT_ROADMAP.md");
     let roadmap = { lastUpdated: "", status: "", currentSprint: [], activeProjects: [] };
     if (roadmapFile) {
@@ -558,57 +587,65 @@ app.get("/api/bbl/summary", async (req, res) => {
     signalFeed.push(`ACTIVE MODULES: ${projects.length}`);
 
     let nextUp = null;
-    if (roadmapFile) {
-      const firstOpen = tasks.find((task) => !task.done);
-      if (firstOpen) {
-        nextUp = {
-          title: firstOpen.text,
-          source: firstOpen.source || "Roadmap",
-          fileId: firstOpen.fileId,
-          lineNumber: firstOpen.lineNumber,
-          done: firstOpen.done,
-        };
-      }
-    }
-    if (!nextUp && secondBrainTaskFile) {
-      const secondText = await readFileText(drive, secondBrainTaskFile.id);
-      const secondTasks = parseTaskFile(secondText);
-      const openSecond = secondTasks.find((task) => !task.done);
-      if (openSecond) {
-        nextUp = {
-          title: openSecond.text,
-          source: "Second Brain",
-          fileId: secondBrainTaskFile.id,
-          lineNumber: openSecond.lineNumber,
-          done: openSecond.done,
-        };
-      }
-    }
-    if (!nextUp && roadmap.currentSprint.length) {
-      nextUp = {
-        title: roadmap.currentSprint[0],
+    let nextUpQueue = [];
+    const openTasks = tasks.filter((task) => !task.done);
+    if (openTasks.length) {
+      nextUpQueue = openTasks.map((task) => ({
+        id: task.id,
+        title: task.text,
+        source: task.source || "Roadmap",
+        fileId: task.fileId,
+        lineNumber: task.lineNumber,
+        done: task.done,
+      }));
+      nextUp = nextUpQueue[0] || null;
+    } else if (roadmap.currentSprint.length) {
+      nextUpQueue = roadmap.currentSprint.map((item, index) => ({
+        id: `sprint:${index}`,
+        title: item,
         source: "Current Sprint",
-      };
-    }
-    if (!nextUp && inbox.length) {
-      const latest = inbox[inbox.length - 1];
-      nextUp = {
-        title: latest.text,
+      }));
+      nextUp = nextUpQueue[0] || null;
+    } else if (inbox.length) {
+      nextUpQueue = inbox.map((item, index) => ({
+        id: item.id ? `inbox:${item.id}` : `inbox:${index}`,
+        title: item.text,
         source: "Inbox",
-      };
+      }));
+      nextUp = nextUpQueue[0] || null;
     }
 
     res.json({
       folder,
       roadmap,
       projects,
+      projectFolders,
       currentSprint: roadmap.currentSprint,
       tasks,
       nextUp,
+      nextUpQueue,
       ingredients,
       inbox,
       signalFeed,
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/bbl/folders", async (req, res) => {
+  const drive = await getDriveClient();
+  if (!drive) {
+    return res.status(401).json({ error: "Not authorized" });
+  }
+  const name = (req.body?.name || "").trim();
+  if (!name) {
+    return res.status(400).json({ error: "Missing name" });
+  }
+  try {
+    const folder = await resolveBblFolder(drive);
+    const created = await createFolder(drive, folder.id, name);
+    res.json({ folder: created });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
