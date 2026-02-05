@@ -43,6 +43,11 @@ function App() {
   const [togglingId, setTogglingId] = useState("");
   const [rootFolderName, setRootFolderName] = useState("");
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [activeFolderId, setActiveFolderId] = useState("");
+  const [activeFolderName, setActiveFolderName] = useState("");
+  const [folderItems, setFolderItems] = useState([]);
+  const [folderLoading, setFolderLoading] = useState(false);
+  const [folderError, setFolderError] = useState("");
 
   useEffect(() => {
     checkStatus();
@@ -138,6 +143,39 @@ function App() {
     }
   }
 
+  useEffect(() => {
+    if (!activeFolderId) {
+      setFolderItems([]);
+      setFolderError("");
+      return;
+    }
+    let cancelled = false;
+    async function loadFolderItems() {
+      setFolderLoading(true);
+      setFolderError("");
+      try {
+        const data = await fetchJson(
+          `/api/bbl/folders/list?folderId=${encodeURIComponent(activeFolderId)}`
+        );
+        if (!cancelled) {
+          setFolderItems(data.items || []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setFolderError(err.message || "Failed to load folder items.");
+        }
+      } finally {
+        if (!cancelled) {
+          setFolderLoading(false);
+        }
+      }
+    }
+    loadFolderItems();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeFolderId]);
+
   const projects = bbl?.projects || [];
   const activeProject = useMemo(() => {
     if (!projects.length) return null;
@@ -150,6 +188,19 @@ function App() {
   const tasks = bbl?.tasks || [];
   const nextUp = bbl?.nextUp || null;
   const projectFolders = bbl?.projectFolders || [];
+
+  const projectNameMap = useMemo(() => {
+    const map = {};
+    for (const project of projects) {
+      const key = project.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
+      if (key && !map[key]) {
+        map[key] = project.id;
+      }
+    }
+    return map;
+  }, [projects]);
   const nextUpQueue = bbl?.nextUpQueue || [];
   const nextUpItems = useMemo(() => {
     if (nextUpQueue.length) return nextUpQueue;
@@ -261,7 +312,11 @@ function App() {
                       : ""
                   }`}
                   type="button"
-                  onClick={() => setActiveId(project.id)}
+                  onClick={() => {
+                    setActiveId(project.id);
+                    setActiveFolderId("");
+                    setActiveFolderName("");
+                  }}
                 >
                   <div className="nav-stack">
                     <span className="nav-title">{project.name}</span>
@@ -275,15 +330,21 @@ function App() {
               {projectFolders.map((folder) => (
                 <button
                   key={folder.id}
-                  className="nav-btn nav-folder"
+                  className={`nav-btn nav-folder ${
+                    activeFolderId === folder.id ? "active" : ""
+                  }`}
                   type="button"
-                  onClick={() =>
-                    window.open(
-                      `https://drive.google.com/drive/folders/${folder.id}`,
-                      "_blank",
-                      "noopener,noreferrer"
-                    )
-                  }
+                  onClick={() => {
+                    setActiveFolderId(folder.id);
+                    setActiveFolderName(folder.name || "");
+                    const normalized = (folder.name || "")
+                      .toLowerCase()
+                      .replace(/[^a-z0-9]+/g, "");
+                    const matchId = projectNameMap[normalized];
+                    if (matchId) {
+                      setActiveId(matchId);
+                    }
+                  }}
                 >
                   <div className="nav-stack">
                     <span className="nav-title">{folder.name}</span>
@@ -476,6 +537,61 @@ function App() {
             </div>
 
             <div className="content-grid">
+              {activeFolderId ? (
+                <div className="panel panel-soft reveal" style={{ "--d": "0.18s" }}>
+                  <div className="panel-title">Root Folder View</div>
+                  <div className="folder-header">
+                    <div className="folder-name mono">
+                      {activeFolderName || "Selected Folder"}
+                    </div>
+                    <button
+                      className="ghost small"
+                      type="button"
+                      onClick={() =>
+                        window.open(
+                          `https://drive.google.com/drive/folders/${activeFolderId}`,
+                          "_blank",
+                          "noopener,noreferrer"
+                        )
+                      }
+                    >
+                      Open in Drive
+                    </button>
+                  </div>
+                  {folderLoading ? (
+                    <div className="folder-empty">Loading folder contents...</div>
+                  ) : folderError ? (
+                    <div className="folder-empty">{folderError}</div>
+                  ) : folderItems.length ? (
+                    <div className="folder-list mono scroll-thin">
+                      {folderItems.map((item) => {
+                        const isFolder =
+                          item.mimeType === "application/vnd.google-apps.folder";
+                        const openUrl = isFolder
+                          ? `https://drive.google.com/drive/folders/${item.id}`
+                          : `https://drive.google.com/open?id=${item.id}`;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className="folder-item"
+                            onClick={() =>
+                              window.open(openUrl, "_blank", "noopener,noreferrer")
+                            }
+                          >
+                            <span className="folder-item-name">{item.name}</span>
+                            <span className="folder-item-meta">
+                              {isFolder ? "FOLDER" : "FILE"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="folder-empty">No files found.</div>
+                  )}
+                </div>
+              ) : null}
               <div className="panel panel-soft reveal" style={{ "--d": "0.2s" }}>
                 <div className="panel-title">Priority Queue</div>
                 <div className="task-list mono">

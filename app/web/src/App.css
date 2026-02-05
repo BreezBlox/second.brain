@@ -315,6 +315,11 @@ button.danger {
   border-left-color: rgba(246, 196, 83, 0.5);
 }
 
+.nav-btn.nav-folder.active {
+  background: linear-gradient(90deg, rgba(246, 196, 83, 0.22), transparent 70%);
+  border-left-color: rgba(246, 196, 83, 0.8);
+}
+
 .nav-stack {
   display: flex;
   flex-direction: column;
@@ -682,6 +687,76 @@ button.danger {
   text-transform: uppercase;
   color: var(--muted);
   margin-bottom: 16px;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.folder-name {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #cbd5f0;
+}
+
+.folder-list {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.folder-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: rgba(9, 16, 26, 0.7);
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.folder-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(246, 196, 83, 0.45);
+}
+
+.folder-item-name {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder-item-meta {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.folder-empty {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .task-list {

@@ -651,6 +651,28 @@ app.post("/api/bbl/folders", async (req, res) => {
   }
 });
 
+app.get("/api/bbl/folders/list", async (req, res) => {
+  const drive = await getDriveClient();
+  if (!drive) {
+    return res.status(401).json({ error: "Not authorized" });
+  }
+  const folderId = req.query.folderId;
+  if (!folderId || typeof folderId !== "string") {
+    return res.status(400).json({ error: "Missing folderId" });
+  }
+  try {
+    const files = await listAllFiles(
+      drive,
+      [`"${folderId}" in parents`, "trashed = false"].join(" and "),
+      "files(id, name, mimeType, modifiedTime)"
+    );
+    files.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    res.json({ items: files });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/bbl/inbox", async (req, res) => {
   const drive = await getDriveClient();
   if (!drive) {
